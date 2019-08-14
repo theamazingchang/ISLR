@@ -1,0 +1,255 @@
+---
+title: "Chapter 4"
+author: "Alex Chang"
+date: "August 8, 2019"
+output: html_document
+---
+
+#This is Chapter Four 
+
+##This is the lab portion of chapter 4 
+
+First  I want to make a basic function to load the necessary data set for this lab 
+
+```{r}
+LoadLibrary=function(){
+  library(ISLR)
+  attach(Smarket)
+  print("it worked!")
+}
+LoadLibrary()
+summary(Smarket)
+```
+Great, now I have the ISLR package and Smarket database loaded up let's perform a correlation for the variables.  I'm going to get rid of the last variable "Direction" so that we can adequately create a correlation matrix.  
+
+```{r}
+cor(Smarket[,-9])
+?Smarket
+```
+There isn't much in terms of correlation here, however we see a big one for Year and Volume, meaning that there is a relationship between the volume of shares traded and the Year that these observations were recorded. 
+
+Let's visualize the Volume variable, since we know Year is just a list of years going upward incrementally.  
+```{r}
+plot(Volume)
+```
+
+First let's run a logistic regression with all the variables included (aside from year & today ) we have to make sure that we tell the function that our output is binomial 
+```{r}
+glm.fits=glm(Direction ~ .-Today-Year, data = Smarket, family = binomial)
+summary(glm.fits)
+```
+nothing came up significant, we'll use the coefficient function to test if we can see if there are any that stand out from our model. 
+```{r}
+coef(glm.fits)
+summary(glm.fits)$coef
+```
+let's look at only their p-value by drawing out the 4th column 
+```{r}
+summary(glm.fits)$coef[,4]
+```
+We've already seen this before but this is cleaner way of focusing on the p-values. 
+
+Let's try running with this model anyway, despite its inaccruacies and see what we get using the "predict" function. Using the "response" tag will allow R to output hte probabilities that Y =1 or that the market will go up.  Contrasts just tells us which is which. 
+```{r}
+glm.probs = predict(glm.fits, type = "response")
+glm.probs[1:10]
+contrasts(Direction)
+```
+Now let's test how accurate our model is.  But first we need to create 1250 true "Down" probabilities or "elements" as a vector, and then use our model to assign anything that it creates above a probability of 0.5 as an "up" statement.  
+```{r}
+glm.pred=rep("Down",1250)
+glm.pred[glm.probs>.5]="Up"
+```
+We then create a confusion table to check our sensitivity by eye 
+```{r}
+table(glm.pred, Direction)
+```
+We see that the model correctly predicted 145 down elements and 507 Up elements. 
+```{r}
+mean(glm.pred==Direction)
+```
+so our log function correctly predicted the market 52.2% of the time.  This isn't that greate because we're using a training data set, and that we can assume that since training data is usually postively biased, the test data will be worse. We also used all of our data available, how about testing it with only a part of the data and see if it can predict days in the future where the market's movements are unknown.  
+```{r}
+train =(Year <2005)
+Smarket.2005= Smarket[!train,]
+dim(Smarket.2005)
+Direction.2005= Direction[!train]
+```
+so w;hat does this "train" element do?  Well it categorized any values under the year 2005 as TRUE and those 2005 as FALSE.  This TRUE/FALSE vector format is known as a Boolean vector.   Smarket is a subset of the data that only accepts "TRUE" statemement, IF WE DID NOT INCLUDE THE !.  Beceause we included !, it will only subset those marked as FALSE, thereby only taking data from the year 2005.  We see that there is only 252 observations.  Now let's use this subset for a another log regression model.  
+```{r}
+glm.fits=glm(Direction~.-Year-Today, data=Smarket, family = binomial, subset = train)
+summary(glm.fits)
+glm.probs=predict(glm.fits,Smarket.2005, type="response")
+summary(glm.probs)
+```
+So, our model was trained on all the data that was before the year 2005, and we now used it to test on the data from the year 2005 from our subset.  Let's now see how it performed. 
+```{r}
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction.2005)
+mean(glm.pred==Direction.2005)
+mean(glm.pred!=Direction.2005)
+```
+Remember that the first mean is the opposite of the test error rate, its the percentage that the model got wrong, we use the ! modifier to make sure it is % we got right, which isn't good at 52%.  Let's try using the two days prior to a market value that did have the most impact with the lowest p-values, lag 1 and lag2. 
+Let's make a new logistic regression model 
+```{r}
+glm.fits=glm(Direction~Lag1+Lag2, data=Smarket, family=binomial, subset = train)
+glm.probs=predict(glm.fits, Smarket.2005, type = "response")
+glm.pred=rep("Down",252)
+glm.pred[glm.probs>.5]="Up"
+table(glm.pred,Direction.2005)
+mean(glm.pred==Direction.2005)
+```
+Notice that the calculated mean is 56% and the accuracy rate from the confusion matrix for correctly guessing the direction is 58%, meaning that 2% is possibly just due to random chance. This is an improvement, but not by much. 
+
+Let's say we wanted to actually control what the Lag values are and what the model will predict.  Again we use the predict function and test them on a day when Lag 1 is 1.2 on the first day and 1.5 on the second day with Lag2 being 1.1 for the first day and -0.8 on the second day.  
+```{r}
+predict(glm.fits, newdata=data.frame(Lag1=c(1.2,1.5), Lag2=c(1.1,-0.8)), type = "response")
+```
+
+## LDA 
+
+Now let's perform an LDA instead of the logit regression.  We already have our training data of all values before 2005, so let's stick to using that. 
+```{r}
+library(MASS)
+lda.fit=lda(Direction~Lag1+Lag2, data = Smarket, subset = train)
+lda.fit
+plot(lda.fit)
+```
+So how do we interpret this?   
+For the prior probabilities we see that 49% of the observations correspond to the days where the market down in the training group and vice versa.  The group means are simply the means of the distribution within each of the classes (Up, Down).  We see that for both a day and two days prior to the market going down, there is an uptick and vice versa.  Makes sense since the market like to rebound in the opposite direction.  
+The linear discriminats are the coefficients used to build a linear equation, which makes sense with our earlier interpretation.   They're both negative values, meaning if our "X" is positive, we see a market decrease, and if it is negative, we see a market increase. This feeds into our plets, where the plots dispaly the spread of "X" that correspond to a class.  
+Let's see what happens when we use the predict function with our LDA model from the training data and see how it perform with our test data.  
+```{r}
+lda.pred=predict(lda.fit, Smarket.2005)
+names(lda.pred)
+```
+There are three things we can expect from this function, class meaning the movement of the market and subsequently the confusion matrix.  Posterior, which is the probability that a corresponding observation belongs to the Kth class of the Kth column.  Just think of the posterior probability as the cutoff for where we want to assign a value to a class, typically it defaults to 50%.  And X, which are the linear discriminants. 
+First let's quickly check the confusion matrix and check the performance of the LDA.  
+```{r}
+lda.class=lda.pred$class
+table(lda.class, Direction.2005)
+mean(lda.class==Direction.2005)
+```
+Not that much different from our logistical regression model. Again, we used a 50% threshold to split the up and down classes for our model.  Testing this manually shows that it matches with our confusion matrix. 
+```{r}
+sum(lda.pred$posterior[,1]>=.5)
+sum(lda.pred$posterior[,1]<.5)
+```
+Notice that in the first line, that the sum is 70, the probability that the market will decrease.  Not increase. 
+```{r}
+lda.pred$posterior[1:20,1]
+#so these are all the chances of a decrease 
+lda.class[1:20]
+#notice how the third to last observation in this second string is Down, as the value was above 50%. 
+```
+What happens if we use a different posterior probability threshold to make predictions.  If we make it too difficult for our model to assign a class in the test data, nothing will happen.  Let's see if what happens when we bump it up to 90%. 
+```{r}
+sum(lda.pred$posterior[,1]>.9)
+```
+
+## QDA 
+
+Now let's do this all again with the qda function, really its the same as the lda, but with a q! 
+```{r}
+qda.fit=qda(Direction∼Lag1+Lag2 ,data=Smarket ,subset =train)
+qda.fit
+```
+Notice we do not have lienar discriminatns that's because its a quadratic function of predictors.  But worry not, the predict function still works in this case. 
+```{r}
+qda.class =predict (qda.fit ,Smarket.2005) $class
+table(qda.class, Direction.2005)
+mean(qda.class == Direction.2005)
+```
+60% a marked improvement.  
+
+## KNN
+There is a vast difference from the previous approaches.  Whereas before we made a model with the training data, then tested it with the test data, we now use the knn function to form predictions directly.  To do this we need four inputs.
+1. we require a matrix of predictors using training data , we'll call it trainX
+2. we also require a matrix of the text data, call it testX
+3. We need the vector (because its only one column and is a string of numbers) with the training outcomes, labled train.direction
+4. we require a value for K, for the number of neighbours needed to be used by the classifier 
+Let's satisfy conditions 1-3. 
+```{r}
+library (class)
+train.X=cbind(Lag1 ,Lag2)[train ,]
+test.X=cbind (Lag1 ,Lag2)[!train ,]
+train.Direction =Direction [train]
+```
+Now we can use the knn funciton, let's set a random seed so our results are repoducible. 
+```{r}
+set.seed(1)
+knn.pred=knn(train.X, test.X, train.Direction ,k=1)
+table(knn.pred, Direction.2005)
+mean(knn.pred == Direction.2005)
+```
+50%, worse than our previous two, but that's because we have our k=1, let's try it with k=3 
+```{r}
+knn.pred=knn (train.X, test.X,train.Direction ,k=3)
+table(knn.pred ,Direction.2005)
+mean(knn.pred == Direction.2005)
+```
+About 53% which is a slight improvement.  However, QDA provides the best estimate thus far, hinting that the true relationship could be quadratic. 
+
+## KNN with a different data set 
+We're going to use this method with a different data set, Caravan which has 85 predictors, most of them demographic, feeding into whether or not someone pruchased a caravan.  
+Let's load and look at the data first. 
+```{r}
+dim(Caravan)
+attach(Caravan)
+summary(Purchase)
+```
+Now something the textbook warns with KNN classifiers is that the scale tends to shake things up a bit.  Think about salary, for us 1000 dollars isn't a lot, but for a computer and the KNN algorithim in particular, 1000 is a lot.  Thus it becomes imperative to standardize the data so that the mean is zero and the standard deviation is 1.  This is typically done through min-max normalization or mean normalization. 
+Let's see this practice in action when we compare the Caravan dataset (minus our output value) before and after the application of the scale function. 
+```{r}
+standardized.x=scale(Caravan[,-86])
+var(Caravan[,1])
+var(Caravan[,2])
+var(standardized.x[,1])
+var(standardized.x[,2])
+```
+Notice how our var (standard deviation) now is 1 vs before. 
+Now let's split caravan into training and test observations. What we're going to do here is split the first 1000 training observations into a test data set and then everthing else into training.  Notice that in the language of creating the training dataset we simply say "-test" or "everything not test".  Which makes our lives a lot easier. 
+```{r}
+test=1:1000
+train.X = standardized.x[-test,]
+test.X = standardized.x[test,]
+train.Y = Purchase[-test]
+test.Y = Purchase[test]
+set.seed(1)
+knn.pred=knn(train.X, test.X, train.Y, k=1)
+mean(test.Y!=knn.pred)
+mean(test.Y!="No")
+```
+We see from the knn model, our error rate is 12%, which is good, but we can also see that just by guessing "no" everytime, our error rate is 6%, meaning our knn model isn't really that much better than randomly guessing. But let's also look at our confusion matrix to check our true accuracy. 
+```{r}
+table(knn.pred , test.Y)
+9/(68+9)
+```
+well there's our 12%. What if we start tweaking the K value though? 
+```{r}
+knn.pred=knn (train.X,test.X,train.Y,k=3)
+table(knn.pred ,test.Y)
+5/26
+```
+19% is 3x that of random guessing, pretty darn good for a knn model.  Let's keep pushing it. 
+```{r}
+knn.pred=knn (train.X,test.X,train.Y,k=5)
+table(knn.pred ,test.Y)
+4/15
+```
+27% is much more than random guessing!   
+
+Can a different model outperform this?  
+We'll try again with logistic regression at a 0.5 probability cutoff and 0.25 cutoff. 
+```{r}
+glm.fits=glm(Purchase~., data=Caravan, family = binomial, subset=-test)
+glm.probs=predict(glm.fits, Caravan[test,], type = "response")
+glm.pred=rep("No", 1000)
+glm.pred[glm.probs>.5]="Yes"
+table(glm.pred, test.Y)
+glm.pred[glm.probs>.25]="Yes"
+table(glm.pred, test.Y)
+```
+holy cow, by shifting the probability cut-off to .25, or loosening the probability needed to include a variable in a class, we see that our predicting power rises to about 33% accuracy.  
+

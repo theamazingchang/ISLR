@@ -1,0 +1,51 @@
+---
+title: "Chapter 3"
+author: "Alex Chang"
+date: "July 3, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Lab Section 
+
+```{r}
+#unpacking libraries 
+install.packages("MASS", repos="http://cran.rstudio.com/", dependencies=TRUE)
+library(MASS)
+install.packages("ISLR", repos="http://cran.rstudio.com/", dependencies=TRUE)
+library(ISLR)
+#load Boston dataset 
+Boston
+fix(Boston)
+names(Boston)
+#find out more about the dataset 
+?Boston
+```
+
+##Perorming a Regression
+```{r}
+lm.fit = lm(medv~lstat, data = Boston)
+lm.fit
+summary(lm.fit)
+#Diseccting a Regression
+names(lm.fit)
+```
+
+##Extracting Info From Regression
+```{r}
+#coefficient 
+coef(lm.fit)
+#confidence interval 
+confint(lm.fit)
+#using the predict function to return a value with the regression, here we see the prediction's confidence interval 
+predict(lm.fit,data.frame(lstat=c(5,10,15)),
+        interval = "confidence")
+#now we're going to determine the prediction interval
+predict(lm.fit,data.frame(lstat=c(5,10,15)),
+        interval = "prediction")
+#the prediction interval is wider because this accounts for true error and should encompass the true y value within it 
+```
+

@@ -1,0 +1,62 @@
+---
+title: "Chapter 2"
+author: "Alex Chang"
+date: "June 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+college <- read.csv('College.csv')
+rownames(college) = college[,1]
+fix(college)
+college1 = college [,-1]
+fix(college1)
+
+summary(college)
+```
+```{r}
+pairs(college1[,1:10])
+```
+
+```{r}
+plot(college1$Outstate, college1$Private)
+attach(college1)
+plot(Outstate,Private)
+Private = as.factor(Private)
+plot(Private, Outstate)
+```
+
+```{r}
+#Create Elite college variable by taking the top 10% of high school student and seeing if they comprise 50% or more of a college's population 
+Elite =rep ("No",nrow(college1 ))
+Elite [college$Top10perc >50]=" Yes"
+Elite =as.factor (Elite)
+college2 =data.frame(college1 ,Elite)
+```
+
+
+```{r}
+summary(college2$Elite)
+attach(college2)
+plot(Elite, Outstate, xlab = 'Is the College Elite?', ylab = 'Out of State Tuition' , main = 'Out of state tuition vs Elite status')
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+hist(Books, col = 2, xlab = "Books", ylab = "Count")
+hist(PhD, col = 3, xlab = "PhD", ylab = "Count")
+hist(Grad.Rate, col = 4, xlab = "Grad Rate", ylab = "Count")
+hist(perc.alumni, col = 6, xlab = "% alumni", ylab = "Count")
+```
+
+```{r}
+library(MASS)
+?Boston
+pairs(Boston [,1:5])
+```
+
